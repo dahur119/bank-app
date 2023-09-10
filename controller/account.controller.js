@@ -73,6 +73,7 @@ class UserController {
     });
 
     res.json({
+      passwordMatch,
       accessToken,
       refreshToken,
     });
@@ -136,9 +137,14 @@ class AccountController {
   async getAccount(req, res) {
     const { authorization } = req.headers;
     try {
+      if (!authorization) {
+        return res.status(401).json({
+          error: "Unauthorized: Missing Authorization Header",
+        });
+      }
       const token = authorization.split(" ")[1];
       const decodeToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      const { userId } = decodeToken._id;
+      const userId = decodeToken._id;
 
       const accountId = req.params.accountId;
 
@@ -163,10 +169,21 @@ class AccountController {
 
 class TransactionController {
   async createTransaction(req, res) {
+    const { authorization } = req.headers;
+
     try {
-      const { sender, receiver, amount } = req.body;
+      if (!authorization) {
+        return res.status(401).json({
+          error: "Unauthorized: Missing Authorization Header",
+        });
+      }
+      const token = authorization.split(" ")[1];
+      const decodeToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      const userId = decodeToken._id;
+
+      const { receiver, amount } = req.body;
       const newTransaction = new Transaction({
-        sender,
+        sender: userId,
         receiver,
         amount,
       });
@@ -178,7 +195,17 @@ class TransactionController {
   }
 
   async getTransaction(req, res) {
+    const { authorization } = req.headers;
     try {
+      if (!authorization) {
+        return res.status(401).json({
+          error: "Unauthorized: Missing Authorization Header",
+        });
+      }
+      const token = authorization.split(" ")[1];
+      const decodeToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      const userId = decodeToken._id;
+
       const transactionId = req.params.transactionId;
 
       const transaction = await Transaction.findById(transactionId);
@@ -186,6 +213,15 @@ class TransactionController {
       if (!transaction) {
         return res.status(404).json({
           message: "Transaction not found",
+        });
+      }
+      if (
+        userId.toString() !== transaction.sender.toString() &&
+        userId.toString() !== transaction.receiver.toString()
+      ) {
+        return res.status(403).json({
+          message:
+            "Forbidden: You do not have permission to access this transaction.",
         });
       }
       res.json(transaction);
@@ -197,12 +233,29 @@ class TransactionController {
 
 class TransactionService {
   async sendFunds(senderAccountId, receiverAccountId, amount) {
+    const { authorization } = req.headers;
     try {
+      if (!authorization) {
+        return res.status(401).json({
+          error: "Unauthorized: Missing Authorization Header",
+        });
+      }
+
+      const token = authorization.split(" ")[1];
+      const decodeToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
+      const userId = decodeToken._id;
       const senderAccount = await Account.findById(senderAccountId);
       const receiverAccount = await Account.findById(receiverAccountId);
 
       if (!senderAccount || !receiverAccount) {
         throw new Error("Sender or receiver account not found");
+      }
+
+      if (senderAccount._id.toString() !== userId) {
+        return res.status(403).json({
+          error: "Unauthorized: You are not the owner of the sender account",
+        });
       }
 
       if (senderAccount.balance < amount) {
@@ -220,7 +273,8 @@ class TransactionService {
       await transaction.save();
       await senderAccount.save();
       await receiverAccount.save();
-      return transaction;
+
+      res.status(201).json(transaction);
     } catch (error) {
       console.error(error);
       throw error;
@@ -229,9 +283,27 @@ class TransactionService {
 
   async getTransactionByAccountId(accountId) {
     try {
+      const { authorization } = req.headers;
+      if (!authorization) {
+        return res.status(401).json({
+          error: "Unauthorized: Missing Authorization Header",
+        });
+      }
+      const token = authorization.split(" ")[1];
+      const decodeToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      const userId = decodeToken._id;
+
+      if (userId !== accountId) {
+        return res.status(403).json({
+          error:
+            "Unauthorized: You do not have permission to access these transactions",
+        });
+      }
+
       const transactions = await Transaction.find({
         $or: [{ sender: accountId }, { receiver: accountId }],
       });
+
       return transactions;
     } catch (error) {
       console.error(error);
