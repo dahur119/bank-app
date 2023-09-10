@@ -1,5 +1,8 @@
 const { User, Account, Transaction } = require("../models/account.model");
+const jwt = require("jsonwebtoken");
 const errorHandler = require("../middleware/errorHandler");
+const bcrypt = require("bcrypt");
+require("dotenv").config;
 
 class UserController {
   async createUser(req, res) {
@@ -15,10 +18,67 @@ class UserController {
 
       await newUser.save();
 
-      res.status(201).json(newUser);
+      const accessToken = jwt.sign(
+        { _id: newUser._id },
+        process.env.ACCESS_TOKEN_SECRET,
+        { expiresIn: "30m" }
+      );
+
+      res.status(201).json({
+        message: "account create successfully",
+        accessToken,
+      });
     } catch (error) {
       errorHandler(error, req, res);
     }
+  }
+
+  async loginUser(req, res) {
+    const { username, password } = req.body;
+    const user = await User.findOne({ username });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "invalid username and password ",
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatch) {
+      return res.status(401).json({
+        message: "Invalid username and password",
+      });
+    }
+
+    res.status(200).json({
+      message: "Login successful",
+    });
+
+    const accessToken = jwt.sign(
+      { _id: user._id },
+      process.env.ACCESS_TOKEN_SECRET,
+      { expiresIn: "30m" }
+    );
+
+    const refreshToken = jwt.sign(
+      { _id: user._id },
+      process.env.REFRESH_TOKEN_SECRET,
+      { expiresIn: "30m" }
+    );
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 1 day in milliseconds
+    });
+
+    res.json({
+      accessToken,
+      refreshToken,
+    });
+  }
+  catch(error) {
+    errorHandler(error, req, res);
   }
 
   async getUser(req, res) {
@@ -38,7 +98,24 @@ class UserController {
 
 class AccountController {
   async createAccount(req, res) {
+    const { authorization } = req.headers;
     try {
+      if (!authorization) {
+        return res.status(401).json({
+          error: "Unauthorized: Missing Authorization Header",
+        });
+      }
+      const token = authorization.split(" ")[1];
+      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
+      const { _id: userId } = decodedToken;
+      const user = await User.findById(userId);
+
+      if (!user) {
+        return res.status(404).json({
+          error: "user not found",
+        });
+      }
       const { accountNumber, accountType, owner } = req.body;
 
       const newAccount = new Account({
@@ -46,6 +123,8 @@ class AccountController {
         accountType,
         owner,
       });
+
+      newAccount.owner = user._id;
       await newAccount.save();
 
       res.status(201).json(newAccount);
@@ -55,13 +134,24 @@ class AccountController {
   }
 
   async getAccount(req, res) {
+    const { authorization } = req.headers;
     try {
+      const token = authorization.split(" ")[1];
+      const decodeToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      const { userId } = decodeToken._id;
+
       const accountId = req.params.accountId;
 
       const account = await Account.findById(accountId).populate("owner");
       if (!account) {
         return res.status(404).json({
           message: "Account not found",
+        });
+      }
+      if (userId !== account.owner._id.toString()) {
+        return res.status(403).json({
+          message:
+            "Forbidden: You do not have permission to access this account.",
         });
       }
       res.json(account);

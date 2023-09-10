@@ -6,12 +6,10 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const PORT = 5000;
-// const MONGO_URL = process.env.MONGO_URL;
 
 const server = http.createServer(app);
 
-const MONGO_URL =
-  "mongodb+srv://bankapp:lM1LSGUVghBJSebE@cluster0.pmeu7jj.mongodb.net/?retryWrites=true&w=majority";
+const MONGO_URL = process.env.MONGO_URL;
 
 mongoose.connection.once("open", () => {
   console.log("MongoDb connection is ready");
