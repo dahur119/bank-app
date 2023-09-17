@@ -2,20 +2,17 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const app = express();
+const useragent = require("express-useragent");
 const helmet = require("helmet");
 const morgan = require("morgan");
-const jwt = require("jsonwebtoken");
+require("dotenv").config();
+
 const errorHandler = require("./middleware/errorHandler");
 const featureRoute = require("./views/features.routes");
 const accountRoute = require("./views/account.routes");
 
-const crypto = require("crypto");
-
-const secretKey = crypto.randomBytes(64).toString("hex");
-
-console.log("SECRET_KEY:", secretKey);
-
 app.use(bodyParser.json());
+app.use(useragent.express());
 app.use(
   cors({
     origin: ["http://localhost:5000"],
