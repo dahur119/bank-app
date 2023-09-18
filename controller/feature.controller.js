@@ -210,17 +210,7 @@ class StatementController {
 
 class GoalController {
   async createGoal(req, res) {
-    const { authorization } = req.headers;
     try {
-      if (!authorization) {
-        return res.status(401).json({
-          error: "Unauthorized: Missing Authorization Header",
-        });
-      }
-      const token = authorization.split(" ")[1];
-      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      const userId = decodedToken._id;
-
       const { account, goalName, targetAmount, currentAmount, deadline } =
         req.body;
 
@@ -230,7 +220,6 @@ class GoalController {
         targetAmount,
         currentAmount,
         deadline,
-        userId,
       });
       await newGoal.save();
 
@@ -241,17 +230,7 @@ class GoalController {
   }
 
   async getGoal(req, res) {
-    const { authorization } = req.headers;
     try {
-      if (!authorization) {
-        return res.status(401).json({
-          error: "Unauthorized: Missing Authorization Header",
-        });
-      }
-      const token = authorization.split(" ")[1];
-      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      const userId = decodedToken._id;
-
       const goalId = req.params.goalId;
 
       const goal = await Goal.findById(goalId);
@@ -262,12 +241,6 @@ class GoalController {
         });
       }
 
-      if (userId.toString() !== goal.userId.toString()) {
-        return res.status(403).json({
-          message: "Forbidden: You do not have permission to access this goal.",
-        });
-      }
-
       res.json(goal);
     } catch (error) {
       errorHandler(error, req, res);
@@ -275,18 +248,7 @@ class GoalController {
   }
 
   async updateGoal(req, res) {
-    const { authorization } = req.headers;
     try {
-      if (!authorization) {
-        return res.status(401).json({
-          error: "Unauthorized: Missing Authorization Header",
-        });
-      }
-
-      const token = authorization.split(" ")[1];
-      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      const userId = decodedToken._id;
-
       const goalId = req.params.goalId;
 
       const goal = await Goal.findById(goalId);
@@ -299,11 +261,6 @@ class GoalController {
         });
       }
 
-      if (userId.toString() !== goal.userId.toString()) {
-        return res.status(403).json({
-          message: "Forbidden: You do not have permission to update this goal.",
-        });
-      }
       goal.goalName = goalName;
       goal.targetAmount = targetAmount;
       goal.currentAmount = currentAmount;
@@ -316,31 +273,14 @@ class GoalController {
   }
 
   async deleteGoal(req, res) {
-    const { authorization } = req.headers;
     try {
-      if (!authorization) {
-        return res.status(401).json({
-          error: "Unauthorized: Missing Authorization Header",
-        });
-      }
-
       const goalId = req.params.goalId;
-
-      const token = authorization.split(" ")[1];
-      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      const userId = decodedToken._id;
 
       const goal = await Goal.findById(goalId);
 
       if (!goal) {
         return res.status(404).json({
           message: "Goal not found",
-        });
-      }
-
-      if (userId.toString() !== goal.userId.toString()) {
-        return res.status(403).json({
-          message: "Forbidden: You do not have permission to delete this goal.",
         });
       }
 
