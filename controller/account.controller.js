@@ -1,5 +1,11 @@
-const { User, Account, Transaction } = require("../models/account.model");
+const {
+  User,
+  Account,
+  Transaction,
+  ObjectId,
+} = require("../models/account.model");
 const jwt = require("jsonwebtoken");
+
 const axios = require("axios");
 const { sendEmail } = require("../email");
 const errorHandler = require("../middleware/errorHandler");
@@ -103,30 +109,6 @@ class UserController {
         process.env.REFRESH_TOKEN_SECRET,
         { expiresIn: "30m" }
       );
-
-      // Retrieve User-Agent from the request
-      const userAgent = req.useragent.source;
-
-      // Log the successful login attempt with User-Agent
-      console.log(`User-Agent: ${userAgent}, Username: ${username}`);
-
-      // Retrieve user's IP address
-      const ipAddress = await getIpAddress(req);
-
-      // Log user's location if needed
-      const userLocation = await getUserLocation(ipAddress);
-      console.log(`IP Address: ${ipAddress}, Location: ${userLocation}`);
-
-      const welcomeEmail = {
-        from: "your-email@gmail.com",
-        to: user.email, // Use the user's email address
-        subject: "Welcome to Your App!",
-        text: "Welcome to Your App! We are excited to have you on board.",
-        html: "<p>Welcome to Your App! We are excited to have you on board.</p>",
-      };
-
-      // Send the welcome email
-      await sendEmail(welcomeEmail);
 
       res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
@@ -388,33 +370,25 @@ class TransactionService {
     }
   }
 
-  async getTransactionByAccountId(accountId) {
+  async getTransactionByAccountId(req, res) {
     try {
-      const { authorization } = req.headers;
-      if (!authorization) {
-        return res.status(401).json({
-          error: "Unauthorized: Missing Authorization Header",
-        });
-      }
-      const token = authorization.split(" ")[1];
-      const decodeToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      const userId = decodeToken._id;
+      const accountId = req.params.accountId;
 
-      if (userId !== accountId) {
-        return res.status(403).json({
-          error:
-            "Unauthorized: You do not have permission to access these transactions",
-        });
-      }
+      // if (!ObjectId.isValid(accountId)) {
+      //   return res.status(400).json({
+      //     error: "Invalid account ID",
+      //   });
+      // }
 
       const transactions = await Transaction.find({
         $or: [{ sender: accountId }, { receiver: accountId }],
       });
 
-      return transactions;
+      // Send the response back to the client
+      res.json(transactions);
     } catch (error) {
       console.error(error);
-      throw error;
+      res.status(500).json({ error: "Internal Server Error" });
     }
   }
 }

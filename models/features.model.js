@@ -6,6 +6,7 @@ const billSchema = new mongoose.Schema({
   amount: Number,
   dueDate: Date,
   isPaid: { type: Boolean, default: false },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 });
 
 const goalSchema = new mongoose.Schema({

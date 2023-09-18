@@ -1,9 +1,7 @@
 const { Goal, Bill, Statement } = require("../models/features.model");
-const { User } = require("../models/account.model");
 const errorHandler = require("../middleware/errorHandler");
 const jwt = require("jsonwebtoken");
 
-const bcrypt = require("bcryptjs");
 require("dotenv").config;
 
 class BillController {
@@ -47,8 +45,9 @@ class BillController {
       const decodeToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
       const userId = decodeToken._id;
 
-      const billId = req.params.billId;
+      const billId = req.params.billId.trim();
 
+      // Fetch the bill from the database
       const bill = await Bill.findById(billId);
 
       if (!bill) {
@@ -56,17 +55,26 @@ class BillController {
           message: "Bill not found",
         });
       }
+
+      if (!bill.userId) {
+        return res.status(500).json({
+          message: "Bill does not have a userId",
+        });
+      }
+
       if (userId.toString() !== bill.userId.toString()) {
         return res.status(403).json({
           message:
             "Forbidden: You do not have permission to access this account.",
         });
       }
+
       res.json(bill);
     } catch (error) {
       errorHandler(error, req, res);
     }
   }
+
   async updateBill(req, res) {
     const { authorization } = req.headers;
     try {
@@ -80,7 +88,7 @@ class BillController {
       const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
       const userId = decodedToken._id;
 
-      const billId = req.params.billId;
+      const billId = req.params.billId.trim();
 
       const bill = await Bill.findById(billId);
 
@@ -118,7 +126,7 @@ class BillController {
           error: "Unauthorized: Missing Authorization Header",
         });
       }
-      const billId = req.params.billId;
+      const billId = req.params.billId.trim;
 
       const token = authorization.split(" ")[1];
       const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
@@ -154,61 +162,45 @@ class BillController {
 
 class StatementController {
   async generateStatement(req, res) {
-    const { authorization } = req.headers;
-
     try {
-      if (!authorization) {
-        return res.status(401).json({
-          error: "Unauthorized: Missing Authorization Header",
-        });
-      }
-      const token = authorization.split(" ")[1];
-      const decodedToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+      const { account, startDate, endDate, transactions } = req.body;
 
-      const userId = decodedToken._id;
-
-      const { account, startDate, endDate } = req.body;
+      // Assuming you have the 'Statement' model properly defined
       const newStatement = new Statement({
         account,
         startDate,
         endDate,
-        userId,
+        transactions,
       });
+
+      // Save the statement and wait for it to be saved
       await newStatement.save();
+
+      // Send a success response with the newly created statement
       res.status(201).json(newStatement);
     } catch (error) {
-      errorHandler(error, req, res);
+      // Handle errors appropriately, log them for debugging
+      console.error(error);
+
+      // Send an error response
+      res.status(500).json({ message: "Internal Server Error" });
     }
   }
 
   async getStatement(req, res) {
-    const { authorization } = req.headers;
     try {
-      if (!authorization) {
-        return res.status(401).json({
-          error: "Unauthorized: Missing Authorization Header",
-        });
-      }
-      const token = authorization.split(" ")[1];
-      const decodeToken = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      const userId = decodeToken._id;
-
-      const statementId = req.params.statementId;
+      const statementId = req.params.statementId.trim();
 
       const statement = await Statement.findById(statementId).populate(
         "transactions"
       );
+      console.log("statemt", statement);
       if (!statement) {
         return res.status(404).json({
           message: "Statement not found",
         });
       }
-      if (userId.toString() !== statement.statementId.toString()) {
-        return res.status(403).json({
-          message:
-            "Forbidden: You do not have permission to access this account.",
-        });
-      }
+
       res.json(statement);
     } catch (error) {
       errorHandler(error, req, res);

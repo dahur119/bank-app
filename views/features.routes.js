@@ -13,7 +13,7 @@ const statementController = new StatementController();
 
 feature.post("/bill", billController.createBill);
 feature.get("/bill/:billId", billController.getBill);
-feature.put("/bill/:billId", billController.updateBill);
+feature.put("/update/:billId", billController.updateBill);
 feature.delete("/bill/:billId", billController.deleteBill);
 
 feature.post("/statement", statementController.generateStatement);

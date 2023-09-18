@@ -13,6 +13,7 @@ const transactionController = new TransactionController();
 const transactionService = new TransactionService();
 
 account.post("/user", userController.createUser);
+account.get("/logout", userController.logOut);
 account.post("/login", userController.loginUser);
 account.get("/user/:userId", userController.getUser);
 
@@ -50,13 +51,10 @@ account.post("/send-funds", async (req, res) => {
   }
 });
 
-account.get("/transaction/:accountId", async (req, res) => {
+account.get("/transactions/:accountId", async (req, res) => {
   try {
-    const accountId = req.params.accountId;
-    const transactions = await transactionService.getTransactionByAccountId(
-      accountId
-    );
-    res.json(transactions);
+    // Call the getTransactionByAccountId function and pass both req and res
+    await transactionService.getTransactionByAccountId(req, res);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Internal server error" });
